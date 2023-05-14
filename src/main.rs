@@ -3,36 +3,48 @@ use std::iter::repeat;
 use std::iter::Peekable;
 
 fn main() {
-    let cost_per_keep = 1u64;
-    let cost_per_recover = 1u64;
+    let keep_cost = 1u64;
+    let recover_cost = 5u64;
+    let num_ticks = 25;
+    let access_list = vec![7, 13, 19, 25];
+    let (online_cost, offline_cost, ratio) =
+        compare(keep_cost, recover_cost, access_list, num_ticks);
+    println!(
+        "online_cost={}, offline_cost={}, competitive_ratio={:.2}",
+        online_cost, offline_cost, ratio
+    );
+}
 
-    let num_accesses = 20;
-    let num_ticks = 40;
-    let access_list: Vec<u64> = generate_access_list(num_accesses, num_ticks);
-    dbg!(access_list.clone());
-
-    // Offline instance.
-    let offline = OfflineInstance::new(access_list.clone().into_iter().peekable());
+fn compare(
+    keep_cost: u64,
+    recover_cost: u64,
+    access_list: Vec<u64>,
+    num_ticks: u64,
+) -> (u64, u64, f64) {
+    // Offline, omniscient instance.
+    let offline = OfflineInstance::new(
+        keep_cost,
+        recover_cost,
+        access_list.clone().into_iter().peekable(),
+    );
     let mut sim = Simulator::new(access_list.clone(), offline);
     for _ in 0..num_ticks {
         sim.tick();
     }
-    dbg!(&sim.node);
     let offline_cost = sim.node.accrued_cost;
 
-    // Attempt a naive, online instance.
-    let online = NaiveInstance::new(cost_per_keep, cost_per_recover);
+    // Naive, 2-competitive online instance.
+    let online = NaiveInstance::new(keep_cost, recover_cost);
     let mut sim = Simulator::new(access_list, online);
     for _ in 0..num_ticks {
         sim.tick();
     }
-    dbg!(&sim.node);
     let online_cost = sim.node.accrued_cost;
-    // Attempt a randomized, online instance.
-    println!(
-        "Competitive ratio = {}",
-        online_cost as f64 / offline_cost as f64
-    );
+    (
+        online_cost,
+        offline_cost,
+        online_cost as f64 / offline_cost as f64,
+    )
 }
 
 #[derive(Debug, Clone)]
@@ -42,8 +54,7 @@ enum Policy {
 }
 
 trait Algorithm {
-    fn tick(&mut self);
-    fn access(&mut self);
+    fn tick(&mut self, access: bool);
 }
 
 #[derive(Debug)]
@@ -59,10 +70,8 @@ impl<T: Algorithm> Simulator<T> {
     }
     fn tick(&mut self) {
         self.t += 1;
-        if self.access.contains(&self.t) {
-            self.node.access();
-        }
-        self.node.tick();
+        let should_access = self.access.contains(&self.t);
+        self.node.tick(should_access);
     }
 }
 
@@ -73,7 +82,7 @@ where
 {
     t: u64,
     access_list: Peekable<T>,
-    cost_per_tick: u64,
+    keep_cost: u64,
     recover_cost: u64,
     accrued_cost: u64,
     policy: Policy,
@@ -83,12 +92,12 @@ impl<T> OfflineInstance<T>
 where
     T: Iterator<Item = u64>,
 {
-    fn new(access_list: Peekable<T>) -> OfflineInstance<T> {
+    fn new(keep_cost: u64, recover_cost: u64, access_list: Peekable<T>) -> OfflineInstance<T> {
         Self {
             t: 0,
             access_list,
-            cost_per_tick: 1,
-            recover_cost: 1,
+            keep_cost,
+            recover_cost,
             accrued_cost: 0,
             policy: Policy::Keep,
         }
@@ -99,25 +108,42 @@ impl<T> Algorithm for OfflineInstance<T>
 where
     T: Iterator<Item = u64>,
 {
-    fn tick(&mut self) {
+    fn tick(&mut self, access: bool) {
         self.t += 1;
-        if matches!(self.policy, Policy::Keep) {
-            self.accrued_cost += self.cost_per_tick;
-        }
-    }
-    fn access(&mut self) {
-        self.accrued_cost += self.recover_cost;
-        let _ = self.access_list.next();
-        match self.access_list.peek() {
-            Some(&elem) => {
+        // Omniscient algorithm: if we are keeping, and if the time to
+        // next access is > C, then discard
+        match (&self.policy, self.access_list.peek()) {
+            (Policy::Keep, Some(&elem)) => {
                 let time_to_next_access = elem - self.t;
-                if time_to_next_access > self.cost_per_tick {
+                if time_to_next_access >= self.recover_cost {
+                    println!(
+                        "Offline: Discarding time={}, total={}",
+                        self.t, self.accrued_cost
+                    );
                     self.policy = Policy::Discard;
-                } else {
-                    self.policy = Policy::Keep;
                 }
             }
-            None => {}
+            _ => {}
+        }
+        if matches!(self.policy, Policy::Keep) {
+            self.accrued_cost += self.keep_cost;
+            println!(
+                "Offline: Keeping time={}, total={}",
+                self.t, self.accrued_cost
+            );
+        }
+        if !access {
+            return;
+        }
+        let _ = self.access_list.next();
+        // Incur a recovery cost if necessary.
+        if matches!(self.policy, Policy::Discard) {
+            self.accrued_cost += self.recover_cost;
+            self.policy = Policy::Keep;
+            println!(
+                "Offline: Recovering time={}, total={}",
+                self.t, self.accrued_cost
+            );
         }
     }
 }
@@ -125,7 +151,7 @@ where
 #[derive(Debug, Clone)]
 struct NaiveInstance {
     t: u64,
-    cost_per_tick: u64,
+    keep_cost: u64,
     recover_cost: u64,
     policy: Policy,
     accrued_cost: u64,
@@ -133,11 +159,11 @@ struct NaiveInstance {
 }
 
 impl NaiveInstance {
-    fn new(cost_per_tick: u64, recover_cost: u64) -> Self {
+    fn new(keep_cost: u64, recover_cost: u64) -> Self {
         Self {
             t: 0,
             last_access: 0,
-            cost_per_tick,
+            keep_cost,
             recover_cost,
             policy: Policy::Keep,
             accrued_cost: 0,
@@ -146,21 +172,38 @@ impl NaiveInstance {
 }
 
 impl Algorithm for NaiveInstance {
-    fn tick(&mut self) {
+    fn tick(&mut self, access: bool) {
         self.t += 1;
-        // Accrue costs based on policy.
-        match self.policy {
-            Policy::Keep => self.accrued_cost += self.cost_per_tick,
-            Policy::Discard => {}
-        }
-    }
-    fn access(&mut self) {
-        self.last_access = self.t;
-        self.accrued_cost += self.recover_cost;
-        if self.last_access > self.cost_per_tick {
+        // 2-competitive algorithm. If time since last access
+        // is >= recover cost, then we should discard.
+        let should_discard = (self.t - self.last_access) >= self.recover_cost;
+        if matches!(self.policy, Policy::Keep) && should_discard {
+            println!(
+                "Online: Discarding time={}, total={}",
+                self.t, self.accrued_cost
+            );
             self.policy = Policy::Discard;
-        } else {
+        }
+        if matches!(self.policy, Policy::Keep) {
+            self.accrued_cost += self.keep_cost;
+            println!(
+                "Online: Keeping time={}, total={}",
+                self.t, self.accrued_cost
+            );
+        }
+        if !access {
+            return;
+        }
+        self.last_access = self.t;
+
+        // Incur a recovery cost if necessary.
+        if matches!(self.policy, Policy::Discard) {
+            self.accrued_cost += self.recover_cost;
             self.policy = Policy::Keep;
+            println!(
+                "Online: Recovering time={}, total={}",
+                self.t, self.accrued_cost
+            );
         }
     }
 }
