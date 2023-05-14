@@ -21,7 +21,7 @@ fn main() {
             let access_list = generate_access_list(i, max_access_list_size as u64);
             let num_ticks = access_list.last().unwrap().clone();
             let competitive_ratio =
-                compare_deterministic_approach(keep_cost, recover_cost, access_list, num_ticks);
+                compare_randomized_approach(keep_cost, recover_cost, access_list, num_ticks);
             ratios.push(competitive_ratio);
         }
         let max_val = ratios
@@ -248,6 +248,7 @@ struct KarlinInstance {
     policy: Policy,
     accrued_cost: u64,
     last_access: u64,
+    t_to_wait_before_discard: u64,
 }
 
 impl KarlinInstance {
@@ -259,6 +260,7 @@ impl KarlinInstance {
             recover_cost,
             policy: Policy::Keep,
             accrued_cost: 0,
+            t_to_wait_before_discard: karlin::sample(recover_cost),
         }
     }
 }
@@ -267,11 +269,10 @@ impl Algorithm for KarlinInstance {
     fn tick(&mut self, access: bool) {
         self.t += 1;
         // 2-competitive algorithm. If time since last access
-        // is >= D, then we should discard where D is sampled from a Karlin
-        // distribution.
-        let sample = karlin::sample(self.recover_cost);
+        // is >= D where 0 <= D <= C. We sample this D from a Karlin distribution
+        // after each access occurs.
         let time_elapsed = self.t - self.last_access;
-        let should_discard = time_elapsed >= sample;
+        let should_discard = time_elapsed >= self.t_to_wait_before_discard;
         if matches!(self.policy, Policy::Keep) && should_discard {
             self.policy = Policy::Discard;
         }
@@ -281,6 +282,7 @@ impl Algorithm for KarlinInstance {
         if !access {
             return;
         }
+        self.t_to_wait_before_discard = karlin::sample(self.recover_cost);
         self.last_access = self.t;
 
         // Incur a recovery cost if necessary.
