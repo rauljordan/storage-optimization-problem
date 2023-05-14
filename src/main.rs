@@ -21,7 +21,7 @@ fn main() {
             let access_list = generate_access_list(i, max_access_list_size as u64);
             let num_ticks = access_list.last().unwrap().clone();
             let competitive_ratio =
-                compare_randomized_approach(keep_cost, recover_cost, access_list, num_ticks);
+                compare_deterministic_approach(keep_cost, recover_cost, access_list, num_ticks);
             ratios.push(competitive_ratio);
         }
         let max_val = ratios
@@ -268,7 +268,7 @@ impl KarlinInstance {
 impl Algorithm for KarlinInstance {
     fn tick(&mut self, access: bool) {
         self.t += 1;
-        // 2-competitive algorithm. If time since last access
+        // Randomized competitive algorithm. If time since last access
         // is >= D where 0 <= D <= C. We sample this D from a Karlin distribution
         // after each access occurs.
         let time_elapsed = self.t - self.last_access;
