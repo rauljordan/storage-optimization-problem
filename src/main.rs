@@ -12,8 +12,8 @@ mod karlin;
 fn main() {
     let keep_cost = 1u64;
     let recover_cost = 10u64;
-    let max_access_list_size = 50;
-    let num_iters = 1000;
+    let max_access_list_size = 100;
+    let num_iters = 100;
     let mut max_ratios = vec![];
     for i in 1..max_access_list_size {
         let mut ratios = vec![];
