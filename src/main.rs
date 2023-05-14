@@ -1,6 +1,48 @@
-use rand::{thread_rng, Rng};
-use std::iter::repeat;
 use std::iter::Peekable;
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use rand::{thread_rng, Rng};
+    use std::iter::repeat;
+    fn generate_access_list(len: usize, num_ticks: u64) -> Vec<u64> {
+        let mut rng = thread_rng();
+        let mut access_list: Vec<u64> = repeat(0)
+            .take(len)
+            .map(|_: u64| rng.gen_range(0..num_ticks as u64))
+            .collect();
+        access_list.sort();
+        access_list.dedup();
+        access_list
+    }
+    fn karlin_pdf(t: u64, c: u64) -> f64 {
+        let e = std::f64::consts::E;
+        let lhs = 1.0 / ((e - 1.0) * c as f64);
+        let rhs = e.powf(t as f64 / c as f64);
+        lhs * rhs
+    }
+
+    // TODO: Fix up box method.
+    fn sample_karlin(max_iters: u64) -> u64 {
+        let mut rng = rand::thread_rng();
+        let max_value: f64 = 1.58;
+        for _ in 0..max_iters {
+            let rand_x = rng.gen_range(0..40);
+            let rand_y = max_value * rng.gen_range(0.0f64..=1.0f64);
+            let calc_y = karlin_pdf(rand_x, 1);
+            println!("randx={}, randy={}, calcy={}", rand_x, rand_y, calc_y);
+            if rand_y <= calc_y {
+                return rand_x;
+            }
+        }
+        panic!("could not find in iterations")
+    }
+    #[test]
+    fn check_karlin_ev() {
+        let res = karlin_pdf(1, 1);
+        assert_eq!(format!("{:.2}", res), "1.58");
+    }
+}
 
 fn main() {
     let keep_cost = 1u64;
@@ -206,15 +248,4 @@ impl Algorithm for NaiveInstance {
             );
         }
     }
-}
-
-fn generate_access_list(len: usize, num_ticks: u64) -> Vec<u64> {
-    let mut rng = thread_rng();
-    let mut access_list: Vec<u64> = repeat(0)
-        .take(len)
-        .map(|_: u64| rng.gen_range(0..num_ticks as u64))
-        .collect();
-    access_list.sort();
-    access_list.dedup();
-    access_list
 }
