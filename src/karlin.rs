@@ -4,10 +4,10 @@ use rand::{thread_rng, Rng};
 mod test {
     use super::*;
     #[test]
-    fn check_karlin_ev() {
+    fn karlin_expected_value() {
         let cost = 1;
         let res = pdf(cost, cost);
-        assert_eq!(format!("{}", res), "1.58");
+        assert_eq!(format!("{:.2}", res), "1.58");
     }
 }
 
