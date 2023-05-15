@@ -12,12 +12,12 @@ mod test {
             recover_from_compressed_cost: 2.0,
             recover_from_discard_cost: 3.0,
         };
-        let access_list = vec![4, 8, 12];
+        let access_list = vec![4, 8, 12, 16, 20];
         let online = KarlinInstance::new(costs.clone());
-        let num_ticks = 12;
+        let num_ticks = 20;
         let ratio = calculate_competitive_ratio(online, costs, access_list, num_ticks);
         eprintln!("{}", ratio);
-        assert_eq!(1, 2);
+        //assert!(ratio < 1.0);
     }
 }
 
@@ -97,8 +97,8 @@ impl Algorithm for KarlinInstance {
         }
         self.policy = Policy::Keep;
     }
-    fn total_accrued_cost(&self) -> u64 {
-        self.accrued_cost as u64
+    fn total_accrued_cost(&self) -> f64 {
+        self.accrued_cost
     }
 }
 
@@ -182,8 +182,8 @@ where
         }
         self.policy = Policy::Keep;
     }
-    fn total_accrued_cost(&self) -> u64 {
-        self.accrued_cost as u64
+    fn total_accrued_cost(&self) -> f64 {
+        self.accrued_cost
     }
 }
 
@@ -209,5 +209,5 @@ pub fn calculate_competitive_ratio<T: Algorithm>(
     let online_cost = sim.node.total_accrued_cost();
 
     // Competitive ratio.
-    online_cost as f64 / offline_cost as f64
+    online_cost / offline_cost
 }

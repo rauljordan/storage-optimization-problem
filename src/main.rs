@@ -14,7 +14,7 @@ pub enum Policy {
 
 pub trait Algorithm {
     fn tick(&mut self, access: bool);
-    fn total_accrued_cost(&self) -> u64;
+    fn total_accrued_cost(&self) -> f64;
 }
 
 #[derive(Debug)]

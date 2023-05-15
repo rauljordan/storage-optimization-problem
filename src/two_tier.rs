@@ -10,7 +10,7 @@ where
     access_list: Peekable<T>,
     keep_cost: u64,
     recover_cost: u64,
-    accrued_cost: u64,
+    accrued_cost: f64,
     policy: Policy,
 }
 
@@ -24,7 +24,7 @@ where
             access_list,
             keep_cost,
             recover_cost,
-            accrued_cost: 0,
+            accrued_cost: 0.0,
             policy: Policy::Keep,
         }
     }
@@ -49,18 +49,18 @@ where
         }
         if !access {
             if matches!(self.policy, Policy::Keep) {
-                self.accrued_cost += self.keep_cost;
+                self.accrued_cost += self.keep_cost as f64;
             }
             return;
         }
         let _ = self.access_list.next();
         // Incur a recovery cost if necessary.
         if matches!(self.policy, Policy::Discard) {
-            self.accrued_cost += self.recover_cost;
+            self.accrued_cost += self.recover_cost as f64;
             self.policy = Policy::Keep;
         }
     }
-    fn total_accrued_cost(&self) -> u64 {
+    fn total_accrued_cost(&self) -> f64 {
         self.accrued_cost
     }
 }
@@ -71,7 +71,7 @@ pub struct NaiveInstance {
     keep_cost: u64,
     recover_cost: u64,
     policy: Policy,
-    accrued_cost: u64,
+    accrued_cost: f64,
     last_access: u64,
 }
 
@@ -83,7 +83,7 @@ impl NaiveInstance {
             keep_cost,
             recover_cost,
             policy: Policy::Keep,
-            accrued_cost: 0,
+            accrued_cost: 0.0,
         }
     }
 }
@@ -99,7 +99,7 @@ impl Algorithm for NaiveInstance {
         }
         if !access {
             if matches!(self.policy, Policy::Keep) {
-                self.accrued_cost += self.keep_cost;
+                self.accrued_cost += self.keep_cost as f64;
             }
             return;
         }
@@ -107,11 +107,11 @@ impl Algorithm for NaiveInstance {
 
         // Incur a recovery cost if necessary.
         if matches!(self.policy, Policy::Discard) {
-            self.accrued_cost += self.recover_cost;
+            self.accrued_cost += self.recover_cost as f64;
             self.policy = Policy::Keep;
         }
     }
-    fn total_accrued_cost(&self) -> u64 {
+    fn total_accrued_cost(&self) -> f64 {
         self.accrued_cost
     }
 }
@@ -122,7 +122,7 @@ pub struct KarlinInstance {
     keep_cost: u64,
     recover_cost: u64,
     policy: Policy,
-    accrued_cost: u64,
+    accrued_cost: f64,
     last_access: u64,
     t_to_wait_before_discard: u64,
 }
@@ -135,7 +135,7 @@ impl KarlinInstance {
             keep_cost,
             recover_cost,
             policy: Policy::Keep,
-            accrued_cost: 0,
+            accrued_cost: 0.0,
             t_to_wait_before_discard: karlin::sample(recover_cost),
         }
     }
@@ -154,7 +154,7 @@ impl Algorithm for KarlinInstance {
         }
         if !access {
             if matches!(self.policy, Policy::Keep) {
-                self.accrued_cost += self.keep_cost;
+                self.accrued_cost += self.keep_cost as f64;
             }
             return;
         }
@@ -163,11 +163,11 @@ impl Algorithm for KarlinInstance {
 
         // Incur a recovery cost if necessary.
         if matches!(self.policy, Policy::Discard) {
-            self.accrued_cost += self.recover_cost;
+            self.accrued_cost += self.recover_cost as f64;
             self.policy = Policy::Keep;
         }
     }
-    fn total_accrued_cost(&self) -> u64 {
+    fn total_accrued_cost(&self) -> f64 {
         self.accrued_cost
     }
 }
@@ -199,7 +199,7 @@ pub fn calculate_competitive_ratio<T: Algorithm>(
     let online_cost = sim.node.total_accrued_cost();
 
     // Competitive ratio.
-    online_cost as f64 / offline_cost as f64
+    online_cost / offline_cost
 }
 
 #[cfg(test)]
