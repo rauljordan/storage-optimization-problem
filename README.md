@@ -32,7 +32,7 @@ discard if the time since last access is some $D$ that is drawn from an optimal 
 for the problem. We implement the Karlin distribution and use it to build a randomized policy that performs
 better than the 2x bound as shown in the paper.
 
-![Image](https://i.imgur.com/9jL2JW6.png)
+![image](https://i.imgur.com/9jL2JW6.png)
 
 We use a monte-carlo based sampling method to draw integers from the Karlin distribution, equivalent
 to box sampling to get integers within a range. A Jupyter notebook is included under `notebooks` that
@@ -56,7 +56,7 @@ pub fn sample(cost: u64) -> u64 {
 }
 ```
 
-![Image](https://i.imgur.com/8kxKNgk.png)
+![image](https://i.imgur.com/8kxKNgk.png)
 
 ## Three-Tiered Problems
 
